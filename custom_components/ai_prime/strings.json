@@ -1,0 +1,165 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect to AquaIllumination Prime",
+        "description": "Enter the IP address or hostname of the lamp. Leave the password empty if the lamp is not password protected. Optionally give it a name; otherwise one is derived from its serial number.",
+        "data": {
+          "host": "Host",
+          "name": "Name",
+          "password": "Password"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Re-authenticate",
+        "description": "The lamp rejected the stored password. Enter the current password.",
+        "data": {
+          "password": "Password"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect to the lamp.",
+      "invalid_auth": "Invalid password.",
+      "unknown": "Unexpected response from the lamp. See the log for details."
+    },
+    "abort": {
+      "already_configured": "This lamp is already configured. Its address has been updated.",
+      "reauth_successful": "Re-authentication was successful."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Nature mode options",
+        "menu_options": {
+          "locations": "Locations",
+          "simulation": "Simulation",
+          "preset": "Edit preset"
+        }
+      },
+      "locations": {
+        "title": "Locations",
+        "description": "Locations for weather, sun and moon, and how sun and moon times are mapped.",
+        "data": {
+          "weather_location": "Weather location",
+          "sun_location": "Sun location",
+          "moon_location": "Moon location",
+          "sun_mode": "Sun time mode",
+          "moon_mode": "Moon time mode"
+        }
+      },
+      "simulation": {
+        "title": "Simulation",
+        "data": {
+          "cloud_strength": "Cloud strength (%)",
+          "moon_max": "Moonlight max (%)",
+          "moon_channel": "Moonlight channel",
+          "lightning_min": "Lightning pause min (s)",
+          "lightning_max": "Lightning pause max (s)"
+        }
+      },
+      "preset": {
+        "title": "Edit preset",
+        "description": "One time point per line: the time, then percent values for blue, green, deep red, warm white, cool white, for example: 07:10 37 37 37 37 37. Decimals are allowed, separators are spaces or commas, # starts a comment. Values from 0 to 100, times from 00:00 to 24:00, at least two points.",
+        "data": {
+          "points": "Time points"
+        }
+      }
+    },
+    "error": {
+      "lightning_range": "The minimum pause must not exceed the maximum.",
+      "invalid_line": "Line {line}: expected a time and five percent values (blue, green, deep red, warm white, cool white).",
+      "invalid_time": "Line {line}: invalid time, expected HH:MM between 00:00 and 24:00.",
+      "value_out_of_range": "Line {line}: value must be between 0 and 100.",
+      "duplicate_time": "Line {line}: this time appears more than once.",
+      "too_few_points": "At least two time points are required.",
+      "lamp_rejected": "Saved in Home Assistant, but the lamp rejected the schedule.",
+      "invalid_name": "Invalid name (1–60 characters).",
+      "invalid_points": "Invalid time points.",
+      "too_many_points": "At most 32 time points are allowed."
+    }
+  },
+  "selector": {
+    "time_mode": {
+      "options": {
+        "anchored": "Anchored (local time)",
+        "real": "Real local time"
+      }
+    },
+    "channel": {
+      "options": {
+        "deep_red": "Deep red",
+        "cool_white": "Cool white",
+        "green": "Green",
+        "blue": "Blue",
+        "warm_white": "Warm white"
+      }
+    }
+  },
+  "entity": {
+    "light": {
+      "light": {
+        "name": "Light"
+      }
+    },
+    "number": {
+      "deep_red": {
+        "name": "Deep red"
+      },
+      "cool_white": {
+        "name": "Cool white"
+      },
+      "green": {
+        "name": "Green"
+      },
+      "blue": {
+        "name": "Blue"
+      },
+      "warm_white": {
+        "name": "Warm white"
+      }
+    },
+    "switch": {
+      "internal_schedule": {
+        "name": "Internal schedule"
+      },
+      "nature_mode": {
+        "name": "Nature mode"
+      },
+      "lightning": {
+        "name": "Lightning"
+      }
+    },
+    "sensor": {
+      "temperature": {
+        "name": "Temperature"
+      },
+      "cloud_cover": {
+        "name": "Cloud cover"
+      },
+      "nature_target": {
+        "name": "Nature target"
+      },
+      "moon_phase": {
+        "name": "Moon phase"
+      },
+      "power": {
+        "name": "Power"
+      }
+    },
+    "binary_sensor": {
+      "fan": {
+        "name": "Fan"
+      },
+      "thermal_shutdown": {
+        "name": "Thermal shutdown"
+      }
+    },
+    "button": {
+      "reload_preset": {
+        "name": "Reload preset from lamp"
+      }
+    }
+  }
+}

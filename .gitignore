@@ -1,0 +1,9 @@
+venv/
+__pycache__/
+*.pyc
+.superpowers/
+.venv/
+.pytest_cache/
+scripts/card_harness/node_modules/
+scripts/card_harness/out/
+docs/superpowers/

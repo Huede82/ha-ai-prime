@@ -1,0 +1,8 @@
+{
+  "name": "ai-prime-card-harness",
+  "private": true,
+  "type": "module",
+  "description": "Dev-only browser harness for the AI Prime card (not shipped with the integration).",
+  "scripts": { "test": "node run.mjs" },
+  "devDependencies": { "playwright": "1.58.0" }
+}

@@ -1,0 +1,165 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Mit AquaIllumination Prime verbinden",
+        "description": "Gib die IP-Adresse oder den Hostnamen der Lampe ein. Lass das Passwort leer, wenn die Lampe nicht passwortgeschützt ist. Optional kannst du einen Namen vergeben, sonst wird er aus der Seriennummer abgeleitet.",
+        "data": {
+          "host": "Host",
+          "name": "Name",
+          "password": "Passwort"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Erneut anmelden",
+        "description": "Die Lampe hat das gespeicherte Passwort abgelehnt. Gib das aktuelle Passwort ein.",
+        "data": {
+          "password": "Passwort"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Verbindung zur Lampe fehlgeschlagen.",
+      "invalid_auth": "Ungültiges Passwort.",
+      "unknown": "Unerwartete Antwort der Lampe. Details stehen im Log."
+    },
+    "abort": {
+      "already_configured": "Diese Lampe ist bereits eingerichtet. Ihre Adresse wurde aktualisiert.",
+      "reauth_successful": "Die erneute Anmeldung war erfolgreich."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Natur-Modus Optionen",
+        "menu_options": {
+          "locations": "Orte",
+          "simulation": "Simulation",
+          "preset": "Preset bearbeiten"
+        }
+      },
+      "locations": {
+        "title": "Orte",
+        "description": "Orte für Wetter, Sonne und Mond sowie die Zuordnung der Sonnen- und Mondzeiten.",
+        "data": {
+          "weather_location": "Wetter-Ort",
+          "sun_location": "Sonnen-Ort",
+          "moon_location": "Mond-Ort",
+          "sun_mode": "Zeitmodus Sonne",
+          "moon_mode": "Zeitmodus Mond"
+        }
+      },
+      "simulation": {
+        "title": "Simulation",
+        "data": {
+          "cloud_strength": "Wolken-Stärke (%)",
+          "moon_max": "Mondlicht max. (%)",
+          "moon_channel": "Mondlicht-Kanal",
+          "lightning_min": "Blitz-Pause min. (s)",
+          "lightning_max": "Blitz-Pause max. (s)"
+        }
+      },
+      "preset": {
+        "title": "Preset bearbeiten",
+        "description": "Ein Zeitpunkt pro Zeile: Uhrzeit, dann Prozentwerte für Blau, Grün, Tiefrot, Warmweiss, Kaltweiss, zum Beispiel: 07:10 37 37 37 37 37. Dezimalpunkt erlaubt, Trennzeichen sind Leerzeichen oder Kommas, # beginnt einen Kommentar. Werte von 0 bis 100, Zeiten von 00:00 bis 24:00, mindestens zwei Punkte.",
+        "data": {
+          "points": "Zeitpunkte"
+        }
+      }
+    },
+    "error": {
+      "lightning_range": "Die minimale Pause darf die maximale nicht überschreiten.",
+      "invalid_line": "Zeile {line}: erwartet Uhrzeit und fünf Prozentwerte (Blau, Grün, Tiefrot, Warmweiss, Kaltweiss).",
+      "invalid_time": "Zeile {line}: ungültige Uhrzeit, erwartet HH:MM zwischen 00:00 und 24:00.",
+      "value_out_of_range": "Zeile {line}: Wert muss zwischen 0 und 100 liegen.",
+      "duplicate_time": "Zeile {line}: diese Uhrzeit kommt mehrfach vor.",
+      "too_few_points": "Mindestens zwei Zeitpunkte sind nötig.",
+      "lamp_rejected": "In Home Assistant gespeichert, aber die Lampe hat den Zeitplan abgelehnt.",
+      "invalid_name": "Ungültiger Name (1–60 Zeichen).",
+      "invalid_points": "Ungültige Zeitpunkte.",
+      "too_many_points": "Höchstens 32 Zeitpunkte sind erlaubt."
+    }
+  },
+  "selector": {
+    "time_mode": {
+      "options": {
+        "anchored": "Verankert (Ortszeit)",
+        "real": "Echte Ortszeit"
+      }
+    },
+    "channel": {
+      "options": {
+        "deep_red": "Tiefrot",
+        "cool_white": "Kaltweiss",
+        "green": "Grün",
+        "blue": "Blau",
+        "warm_white": "Warmweiss"
+      }
+    }
+  },
+  "entity": {
+    "light": {
+      "light": {
+        "name": "Licht"
+      }
+    },
+    "number": {
+      "deep_red": {
+        "name": "Tiefrot"
+      },
+      "cool_white": {
+        "name": "Kaltweiss"
+      },
+      "green": {
+        "name": "Grün"
+      },
+      "blue": {
+        "name": "Blau"
+      },
+      "warm_white": {
+        "name": "Warmweiss"
+      }
+    },
+    "switch": {
+      "internal_schedule": {
+        "name": "Interner Zeitplan"
+      },
+      "nature_mode": {
+        "name": "Naturmodus"
+      },
+      "lightning": {
+        "name": "Blitze"
+      }
+    },
+    "sensor": {
+      "temperature": {
+        "name": "Temperatur"
+      },
+      "cloud_cover": {
+        "name": "Bewölkung"
+      },
+      "nature_target": {
+        "name": "Natur-Sollwert"
+      },
+      "moon_phase": {
+        "name": "Mondphase"
+      },
+      "power": {
+        "name": "Leistung"
+      }
+    },
+    "binary_sensor": {
+      "fan": {
+        "name": "Lüfter"
+      },
+      "thermal_shutdown": {
+        "name": "Überhitzungsabschaltung"
+      }
+    },
+    "button": {
+      "reload_preset": {
+        "name": "Preset aus Lampe neu laden"
+      }
+    }
+  }
+}

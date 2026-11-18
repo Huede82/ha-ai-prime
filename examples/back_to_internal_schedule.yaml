@@ -1,0 +1,13 @@
+# Hand control back to the lamp's own schedule when Home Assistant
+# is about to be shut down for maintenance.
+# Note: this leaves nature mode off after the restart (RestoreEntity stores "off").
+# Replace the entity id with your lamp's internal schedule switch.
+alias: "Aquarium: back to internal schedule on HA shutdown"
+triggers:
+  - trigger: homeassistant
+    event: shutdown
+actions:
+  - action: switch.turn_on
+    target:
+      entity_id: switch.prime_6b9c_internal_schedule
+mode: single

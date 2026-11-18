@@ -1,0 +1,13 @@
+# Turn nature mode on whenever Home Assistant has started
+# (e.g. after back_to_internal_schedule.yaml handed the lamp back).
+# Replace the entity id with your lamp's nature mode switch
+# (Settings → Entities → search "Nature mode" / "Naturmodus").
+alias: "Aquarium: nature mode on at HA start"
+triggers:
+  - trigger: homeassistant
+    event: start
+actions:
+  - action: switch.turn_on
+    target:
+      entity_id: switch.prime_6b9c_nature_mode
+mode: single

@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI Prime card harness</title>
+<style>
+  :root { --primary-color:#03a9f4; --primary-text-color:#212121; --secondary-text-color:#727272;
+    --primary-background-color:#fafafa; --card-background-color:#fff; --secondary-background-color:#e5e5e5;
+    --divider-color:#e0e0e0; --error-color:#db4437; --text-primary-color:#fff; }
+  body { margin: 0; padding: 16px; font-family: sans-serif; background: var(--primary-background-color); }
+  ha-card { display: block; background: var(--card-background-color); border-radius: 12px; }
+</style>
+</head>
+<body>
+<ai-prime-card id="card"></ai-prime-card>
+<script type="module">
+const params = new URLSearchParams(location.search);
+if (params.has("wrap")) {
+  // Ancestor that would trap/clip a position:fixed overlay living inside the card.
+  const wrap = document.createElement("div");
+  wrap.style.cssText = "transform: translateZ(0); contain: layout; overflow: hidden; height: 300px";
+  const c = document.getElementById("card");
+  c.replaceWith(wrap);
+  wrap.appendChild(c);
+}
+const ENTRY = "entry1";
+const HOME = { latitude: 47.3769, longitude: 8.5417 };
+window.__ws = [];       // every callWS message, in order
+window.__services = []; // every callService call
+window.__fail = {};
+window.__failAfter = {}; // error thrown after the handler ran (stored, but e.g. lamp_rejected)
+// querySelector through open shadow roots: "a b c" = a, then b inside a's shadow tree, ...
+const deepFind = (root, sel) => {
+  const hit = root.querySelector(sel);
+  if (hit) return hit;
+  for (const el of root.querySelectorAll("*")) {
+    if (el.shadowRoot) { const found = deepFind(el.shadowRoot, sel); if (found) return found; }
+  }
+  return null;
+};
+// "a b c": find a anywhere (through shadow roots), then b inside it, ...
+window.__deep = (selector) => {
+  let scope = document;
+  for (const part of selector.split(/\s+/)) {
+    scope = deepFind(scope.shadowRoot || scope, part);
+    if (!scope) return null;
+  }
+  return scope;
+};     // type -> error to reject with (set by the test)
+
+// Stubs for HA elements the card expects from the frontend.
+customElements.define("ha-card", class extends HTMLElement {});
+if (params.has("selector")) {
+  // Minimal fake of HA's ha-selector: the test fires value-changed on it.
+  customElements.define("ha-selector", class extends HTMLElement {
+    connectedCallback() { this.textContent = "[map]"; this.dataset.selector = JSON.stringify(this.selector || null); }
+  });
+}
+
+const preview = {
+  date: "2026-11-18",
+  sun: { home: [468, 1008], local: { rise: "07:48", set: "16:48", tz: "Europe/Zurich" }, day_length_min: 540 },
+  moon: { intervals: [[0, 321], [1002, 1440]], phase: 62 },
+  weather: { cloud_cover: 40, thunderstorm: false, code: 0 },
+  curve: { t: [0, 720, 1440], base: {}, effective: {} },
+  markers: [{ kind: "sunrise", t: 468 }, { kind: "sunset", t: 1008 }],
+};
+const ch = (v) => ({ blue: v, green: v, deep_red: v, warm_white: v, cool_white: v });
+for (const k of ["base", "effective"]) for (const c of Object.keys(ch(0))) preview.curve[k][c] = [0, 50, 0];
+
+const config = {
+  presets: [
+    { id: "p1", name: "Standard", readonly: false, points: [{ t: 0, v: ch(0) }, { t: 720, v: ch(50) }, { t: 1200, v: ch(20) }] },
+    { id: "original", name: "Original (Lampe)", readonly: true, points: [{ t: 0, v: ch(10) }, { t: 1380, v: ch(10) }] },
+  ],
+  active: "p1",
+  follow: null,
+  followable: [{ entry_id: "entry2", title: "Lamp 2" }],
+  locations: {
+    weather_location: { ...HOME }, sun_location: { ...HOME }, moon_location: { ...HOME },
+    sun_mode: "anchored", moon_mode: "anchored",
+  },
+  effective_locations: {
+    weather_location: { ...HOME }, sun_location: { ...HOME }, moon_location: { ...HOME },
+    sun_mode: "anchored", moon_mode: "anchored",
+  },
+  effective_active: "p1",
+  effective_active_name: "Standard",
+  lamp_write_pending: false,
+  home: { ...HOME },
+  templates: [
+    { id: "natur", name: "Natur", points: [{ t: 0, v: ch(0) }, { t: 600, v: ch(60) }, { t: 1320, v: ch(0) }] },
+    { id: "leer", name: "Leer", points: [{ t: 0, v: ch(0) }, { t: 1440, v: ch(0) }] },
+  ],
+};
+
+const geocode = [
+  { name: "Bern", country: "Schweiz", admin1: "Bern", latitude: 46.948, longitude: 7.4474 },
+  { name: "Berne", country: "Frankreich", admin1: "Hauts-de-France", latitude: 49.1, longitude: 2.9 },
+];
+
+const handlers = {
+  "ai_prime/entries": () => [{ entry_id: ENTRY, title: "Lamp 1", loaded: true }],
+  "ai_prime/config/get": () => structuredClone(config),
+  "ai_prime/preview": (m) => {
+    // Mirrors the server: weather only for today (HA time zone), curve shaped like the preset.
+    const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Zurich" }).format(new Date());
+    const day = m.date || today;
+    const res = structuredClone(preview);
+    res.date = day;
+    if (day !== today) res.weather = null;
+    const ts = [], base = {}, eff = {};
+    for (const c of Object.keys(ch(0))) { base[c] = []; eff[c] = []; }
+    for (let t = 0; t <= 1440; t += 10) {
+      ts.push(t);
+      const k = Math.max(0, Math.sin(((t - 360) / 1080) * Math.PI));
+      Object.keys(base).forEach((c, i) => { base[c].push(Math.round(k * (60 - i * 8) * 10) / 10); eff[c].push(Math.round(k * (50 - i * 7) * 10) / 10); });
+    }
+    res.curve = { t: ts, base, effective: eff };
+    res.markers = [{ kind: "moonset", t: 321 }, { kind: "sunrise", t: 468 }, { kind: "sunset", t: 1008 }, { kind: "moonrise", t: 1002 }];
+    return res;
+  },
+  "ai_prime/geocode": () => structuredClone(geocode),
+  "ai_prime/locations/set": () => null,
+  "ai_prime/follow/set": () => null,
+  "ai_prime/preset/activate": (m) => { config.active = m.preset_id; config.effective_active = m.preset_id; config.effective_active_name = config.presets.find((x) => x.id === m.preset_id).name; return null; },
+  "ai_prime/preset/save": (m) => {
+    // Mirrors the server: >= 2 points, 0-1440; keeps the library in sync for reloads.
+    if (!Array.isArray(m.points) || m.points.length < 2) throw { code: "invalid_points", message: "need at least 2 points" };
+    let p = m.preset_id && config.presets.find((x) => x.id === m.preset_id);
+    if (p && p.readonly) throw { code: "readonly", message: "preset is read-only" };
+    if (!p) { p = { id: `n${config.presets.length + 1}`, readonly: false }; config.presets.push(p); }
+    p.name = m.name; p.points = structuredClone(m.points);
+    if (m.activate) { config.active = p.id; config.effective_active = p.id; config.effective_active_name = p.name; }
+    return { id: p.id };
+  },
+  "ai_prime/preset/rename": (m) => { config.presets.find((x) => x.id === m.preset_id).name = m.name; return null; },
+  "ai_prime/preset/delete": (m) => {
+    if (m.preset_id === config.active) throw { code: "in_use", message: "Active preset cannot be deleted" };
+    config.presets = config.presets.filter((x) => x.id !== m.preset_id); return null;
+  },
+};
+window.__config = config;
+
+const entities = {};
+const states = {};
+const add = (id, key, domain, state, attrs = {}) => {
+  entities[id] = { entity_id: id, device_id: "dev1", platform: "ai_prime", translation_key: key };
+  states[id] = { entity_id: id, state, attributes: attrs };
+};
+add("light.lamp", "light", "light", "on", { friendly_name: "Lamp 1", brightness: 128 });
+add("switch.lamp_nature_mode", "nature_mode", "switch", "off");
+add("sensor.lamp_temperature", "temperature", "sensor", "31.5", { unit_of_measurement: "°C" });
+add("binary_sensor.lamp_fan", "fan", "binary_sensor", "off");
+add("sensor.lamp_power", "power", "sensor", "42", { unit_of_measurement: "W" });
+add("sensor.lamp_cloud_cover", "cloud_cover", "sensor", "40", { unit_of_measurement: "%" });
+for (const c of Object.keys(ch(0))) add(`number.lamp_${c}`, c, "number", "25");
+
+const hass = {
+  language: params.get("lang") || "de",
+  config: { time_zone: "Europe/Zurich" },
+  states, entities,
+  devices: { dev1: { id: "dev1", config_entries: [ENTRY] } },
+  async callService(domain, service, data) { window.__services.push({ domain, service, data }); },
+  async callWS(msg) {
+    window.__ws.push(structuredClone(msg));
+    if (window.__fail[msg.type]) throw window.__fail[msg.type];
+    const h = handlers[msg.type];
+    if (!h) throw { code: "unknown_command", message: `Unknown command ${msg.type}` };
+    const res = h(msg);
+    if (window.__failAfter[msg.type]) throw window.__failAfter[msg.type];
+    return res;
+  },
+};
+window.__hass = hass;
+
+await import("/frontend/ai-prime-card.js");
+const card = document.getElementById("card");
+card.setConfig({ type: "custom:ai-prime-card", entry_id: ENTRY });
+card.hass = hass;
+window.__ready = true;
+</script>
+</body>
+</html>

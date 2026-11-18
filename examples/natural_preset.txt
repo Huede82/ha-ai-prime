@@ -1,0 +1,13 @@
+# Natural day - columns: Blue Green DeepRed WarmWhite CoolWhite (percent)
+06:00   0  0  0  0  0
+06:20   4  1  2  0  0   # dawn, faint blue
+06:45   6  4 28 20  2   # sunrise, red-orange
+07:30  28 24 55 55 22   # morning gold
+08:30  80 80 80 85 85   # day (sum constant until 17:00)
+12:30  85 85 72 80 88   # noon, slightly cooler
+17:00  80 80 80 85 85   # afternoon
+18:00  45 40 75 75 45   # golden hour
+19:00  12  8 55 35  8   # sunset, red
+19:45   8  2 12  4  0   # dusk
+20:15   6  0  0  0  0   # blue hour
+20:45   0  0  0  0  0
