@@ -11,13 +11,18 @@ import voluptuous as vol
 from homeassistant.components import websocket_api
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.util import dt as dt_util
 
 from . import library
 from .const import (
+    CHANNELS,
     CONF_ACTIVE_PRESET,
+    CONF_BRIGHTNESS,
+    CONF_MOON_MAX,
+    CONF_NIGHT_LIGHT,
     CONF_FOLLOW,
     CONF_LAMP_WRITE_PENDING,
     CONF_MOON_LOCATION,
@@ -28,6 +33,7 @@ from .const import (
     CONF_WEATHER_LOCATION,
     DOMAIN,
 )
+from .api import PrimeError
 from .geocode import GeocodeError, geocode
 from .library import LibraryError
 from .preset import Preset
@@ -59,6 +65,17 @@ _LOCATIONS = vol.Schema(
     }
 )
 
+_PERCENT_5 = vol.All(
+    vol.Coerce(float), vol.Range(min=0.0, max=5.0), lambda v: round(v, 1)
+)
+
+DEFAULT_LIGHT = {CONF_BRIGHTNESS: 100, CONF_NIGHT_LIGHT: 0.0, CONF_MOON_MAX: 3}
+
+
+def _wire_light(options: dict[str, Any]) -> dict[str, Any]:
+    return {key: options.get(key, default) for key, default in DEFAULT_LIGHT.items()}
+
+
 Handler = Callable[
     [HomeAssistant, websocket_api.ActiveConnection, dict[str, Any], "PrimeConfigEntry"],
     Awaitable[None],
@@ -72,6 +89,7 @@ def async_register(hass: HomeAssistant) -> None:
         ws_entries,
         ws_config_get,
         ws_locations_set,
+        ws_light_set,
         ws_preset_save,
         ws_preset_delete,
         ws_preset_rename,
@@ -79,6 +97,8 @@ def async_register(hass: HomeAssistant) -> None:
         ws_follow_set,
         ws_preview,
         ws_geocode,
+        ws_demo_frame,
+        ws_demo_stop,
     ):
         websocket_api.async_register_command(hass, command)
 
@@ -206,6 +226,7 @@ async def ws_config_get(
             "effective_locations": _wire_locations(hass, eff),
             "effective_active": eff.get(CONF_ACTIVE_PRESET),
             "effective_active_name": _effective_active_name(eff),
+            "light": _wire_light(own),
             "lamp_write_pending": bool(own.get(CONF_LAMP_WRITE_PENDING)),
             "home": {"latitude": hass.config.latitude, "longitude": hass.config.longitude},
             "templates": library.templates(own),
@@ -226,6 +247,23 @@ async def ws_config_get(
 async def ws_locations_set(hass, connection, msg, entry) -> None:
     await entry.runtime_data.studio.set_locations(msg["locations"])
     connection.send_result(msg["id"])
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "ai_prime/light/set",
+        vol.Required("entry_id"): str,
+        vol.Optional(CONF_BRIGHTNESS): vol.All(int, vol.Range(min=1, max=100)),
+        vol.Optional(CONF_NIGHT_LIGHT): _PERCENT_5,
+        vol.Optional(CONF_MOON_MAX): _PERCENT_5,
+    }
+)
+@websocket_api.require_admin
+@entry_command
+async def ws_light_set(hass, connection, msg, entry) -> None:
+    changes = {k: msg[k] for k in (CONF_BRIGHTNESS, CONF_NIGHT_LIGHT, CONF_MOON_MAX) if k in msg}
+    await entry.runtime_data.studio.set_light(changes)
+    connection.send_result(msg["id"], _wire_light(entry.options))
 
 
 @websocket_api.websocket_command(
@@ -339,6 +377,7 @@ async def ws_preview(hass, connection, msg, entry) -> None:
         runner.settings,
         weather,
     )
+    result["light"] = _wire_light(entry.options)
     connection.send_result(msg["id"], result)
 
 
@@ -359,3 +398,39 @@ async def ws_geocode(
         connection.send_error(msg["id"], "geocode_failed", str(err))
         return
     connection.send_result(msg["id"], results)
+
+
+# -- live demo on the lamp -------------------------------------------------
+_DEMO_PERCENT = vol.All(vol.Coerce(float), vol.Range(min=0.0, max=100.0))
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "ai_prime/demo/frame",
+        vol.Required("entry_id"): str,
+        vol.Required("values"): vol.Schema({vol.Required(c): _DEMO_PERCENT for c in CHANNELS}),
+    }
+)
+@websocket_api.require_admin
+@entry_command
+async def ws_demo_frame(hass, connection, msg, entry) -> None:
+    demo = entry.runtime_data.demo
+    values = {c: round(pct * 10) for c, pct in msg["values"].items()}
+    try:
+        await demo.frame(values, owner=connection)
+    except (PrimeError, HomeAssistantError) as err:
+        connection.send_error(msg["id"], "lamp_unreachable", str(err))
+        return
+    # Stop the demo when the connection that drives it goes away.
+    connection.subscriptions[("ai_prime_demo", entry.entry_id)] = demo.stop_for(connection)
+    connection.send_result(msg["id"])
+
+
+@websocket_api.websocket_command(
+    {vol.Required("type"): "ai_prime/demo/stop", vol.Required("entry_id"): str}
+)
+@websocket_api.require_admin
+@entry_command
+async def ws_demo_stop(hass, connection, msg, entry) -> None:
+    await entry.runtime_data.demo.stop()
+    connection.send_result(msg["id"])

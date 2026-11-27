@@ -9,7 +9,7 @@ from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import HomeAssistant
 
 from . import library
-from .const import CONF_ACTIVE_PRESET, CONF_FOLLOW, DOMAIN
+from .const import CONF_ACTIVE_PRESET, CONF_BRIGHTNESS, CONF_FOLLOW, DOMAIN
 from .library import LOCATION_KEYS, LibraryError
 from .preset import Point
 
@@ -131,6 +131,18 @@ class Studio:
         if unknown:
             raise LibraryError("invalid_locations", ", ".join(sorted(unknown)))
         await self.update({**self.entry.options, **locations}, lamp_write=False)
+
+    async def set_light(self, changes: Mapping[str, Any]) -> None:
+        """Store light settings (per entry, never inherited); re-write the lamp on a brightness change."""
+        options = self.entry.options
+        write = CONF_BRIGHTNESS in changes and changes[CONF_BRIGHTNESS] != options.get(
+            CONF_BRIGHTNESS, 100
+        )
+        self.hass.config_entries.async_update_entry(
+            self.entry, options={**options, **changes}
+        )
+        if await self.refresh(lamp_write=write) == "rejected":
+            raise LibraryError("lamp_rejected", self.entry.title or self.entry.entry_id)
 
     async def set_follow(self, leader_id: str | None) -> None:
         if leader_id is not None:

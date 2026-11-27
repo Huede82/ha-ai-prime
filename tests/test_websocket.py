@@ -257,6 +257,41 @@ async def test_locations_set_invalid(hass, ws, locations) -> None:
     assert res["error"]["code"] == "invalid_format"
 
 
+async def test_config_get_light_defaults(hass, ws) -> None:
+    entry, client = ws
+    res = (await _call(client, "config/get", entry_id=entry.entry_id))["result"]
+    assert res["light"] == {"brightness": 100, "night_light": 0.0, "moon_max": 3}
+
+
+async def test_light_set(hass, ws) -> None:
+    entry, client = ws
+    res = await _call(client, "light/set", entry_id=entry.entry_id,
+                      brightness=40, night_light=1.26, moon_max=2)
+    assert res["success"]
+    assert res["result"] == {"brightness": 40, "night_light": 1.3, "moon_max": 2.0}
+    assert entry.options["brightness"] == 40
+    assert entry.options["night_light"] == 1.3
+    got = (await _call(client, "config/get", entry_id=entry.entry_id))["result"]
+    assert got["light"]["brightness"] == 40
+    assert entry.runtime_data.nature.settings.brightness == 0.4
+    assert entry.runtime_data.nature.settings.night_level == 13
+    pv = (await _call(client, "preview", entry_id=entry.entry_id))["result"]
+    assert pv["light"]["brightness"] == 40
+    assert "theory" in pv["curve"]
+
+
+@pytest.mark.parametrize(
+    "extra",
+    [{"brightness": 0}, {"brightness": 101}, {"brightness": 50.5}, {"night_light": 5.1},
+     {"night_light": -1}, {"moon_max": 6}],
+)
+async def test_light_set_invalid(hass, ws, extra) -> None:
+    entry, client = ws
+    res = await _call(client, "light/set", entry_id=entry.entry_id, **extra)
+    assert res["error"]["code"] == "invalid_format"
+    assert "brightness" not in entry.options
+
+
 async def test_follow_set_and_followable(hass, stop_patches, hass_ws_client) -> None:
     leader, _, _ = await setup_entry(hass, stop_patches, options=_opts(300))
     follower = await _add(hass, stop_patches, "FOLLOWER0001", _entry_options(900, "Own"))
@@ -369,11 +404,14 @@ async def test_geocode_query_too_long(hass, ws) -> None:
 
 WRITE_COMMANDS = [
     ("locations/set", {"locations": {}}),
+    ("light/set", {"brightness": 50}),
     ("preset/save", {"name": "X", "points": POINTS}),
     ("preset/delete", {"preset_id": "a"}),
     ("preset/rename", {"preset_id": "a", "name": "X"}),
     ("preset/activate", {"preset_id": "a"}),
     ("follow/set", {"leader": None}),
+    ("demo/frame", {"values": {c: 10.0 for c in CHANNELS}}),
+    ("demo/stop", {}),
 ]
 
 

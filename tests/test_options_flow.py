@@ -75,6 +75,8 @@ async def test_options_simulation_validation(hass, stop_patches) -> None:
     good = {
         CONF_CLOUD_STRENGTH: 40,
         CONF_MOON_MAX: 2.5,
+        "brightness": 80,
+        "night_light": 1.5,
         CONF_MOON_CHANNEL: "green",
         CONF_LIGHTNING_MIN: 30,
         CONF_LIGHTNING_MAX: 90,
@@ -87,6 +89,8 @@ async def test_options_simulation_validation(hass, stop_patches) -> None:
     assert result["type"] is FlowResultType.CREATE_ENTRY
     assert entry.options[CONF_CLOUD_STRENGTH] == 40
     assert entry.options[CONF_MOON_MAX] == 2.5
+    assert entry.options["brightness"] == 80
+    assert entry.options["night_light"] == 1.5
     assert entry.options[CONF_MOON_CHANNEL] == "green"
     assert entry.options[CONF_LIGHTNING_MIN] == 30
     assert entry.options[CONF_LIGHTNING_MAX] == 90

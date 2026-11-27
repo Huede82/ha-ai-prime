@@ -54,7 +54,7 @@ def build_preview(
     weather: Weather | None,
     step: int = 10,
 ) -> dict:
-    """Describe one day: sun/moon windows, weather and base/effective curves."""
+    """Describe one day: sun/moon windows, weather and base/effective/theory curves."""
     home_tz = ZoneInfo(home.timezone)
     sun_win = sun_window(sun_loc, day, sun_mode, home)
     moon_win = moon_window(moon_loc, day, moon_mode, home)
@@ -74,11 +74,13 @@ def build_preview(
     times = list(range(0, 1440, step)) + [1440]
     base = {c: [] for c in CHANNELS}
     eff = {c: [] for c in CHANNELS}
+    theory = {c: [] for c in CHANNELS}
     for t in times:
         if preset is None:
             for c in CHANNELS:
                 base[c].append(0)
                 eff[c].append(0)
+                theory[c].append(0)
             continue
         raw = preset.value_at(t % 1440)
         moon_up = any(a <= t <= b for a, b in moon_win)
@@ -86,9 +88,11 @@ def build_preview(
             hour=min(t, 1439) // 60, minute=min(t, 1439) % 60
         )
         target = compute(preset, t, sun_win, moon_up, illumination(at), weather, settings)
+        ideal = compute(preset, t, sun_win, moon_up, illumination(at), None, settings)
         for c in CHANNELS:
             base[c].append(_pct(raw[c]))
             eff[c].append(_pct(target.channels[c]))
+            theory[c].append(_pct(ideal.channels[c]))
 
     return {
         "date": day.isoformat(),
@@ -110,6 +114,11 @@ def build_preview(
             if weather
             else None
         ),
-        "curve": {"t": times, "base": base, "effective": eff},
+        "light": {
+            "brightness": round(settings.brightness * 100),
+            "night_light": _pct(settings.night_level),
+            "moon_max": round(settings.moon_max * 100, 1),
+        },
+        "curve": {"t": times, "base": base, "effective": eff, "theory": theory},
         "markers": markers,
     }

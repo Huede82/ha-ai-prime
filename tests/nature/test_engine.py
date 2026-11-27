@@ -135,3 +135,29 @@ def test_remap_continuous_across_midnight():
     a = remap_minute(1439.999, window, 705, 795) % 1440
     b = remap_minute(0, window, 705, 795) % 1440
     assert a == pytest.approx(b, abs=0.01)
+
+
+def test_brightness_scales_day_only():
+    t = _compute(700, settings=NatureSettings(brightness=0.5))
+    plain = _compute(700)
+    for c in CHANNELS:
+        assert t.channels[c] == round(plain.channels[c] * 0.5)
+    assert t.factors["brightness"] == 0.5
+
+
+def test_night_light_adds_with_moon_and_ignores_clouds_and_brightness():
+    s = NatureSettings(night_level=20, brightness=0.5)
+    both = _compute(60, moon_up=True, illum=1.0, settings=s)
+    assert both.channels["blue"] == 50  # 20 night + 30 moon
+    assert both.factors["night_level"] == 20
+    only = _compute(60, moon_up=False, settings=s, weather=_weather(1.0))
+    assert only.channels["blue"] == 20
+    assert all(v == 0 for c, v in only.channels.items() if c != "blue")
+    # not at day
+    assert _compute(700, settings=s).factors["night_level"] == 0
+
+
+def test_night_light_zero_is_old_behaviour():
+    s = NatureSettings(night_level=0)
+    for kw in ({"moon_up": True, "illum": 1.0}, {"moon_up": False}):
+        assert _compute(60, settings=s, **kw).channels == _compute(60, **kw).channels

@@ -54,9 +54,14 @@
         "data": {
           "cloud_strength": "Wolken-Stärke (%)",
           "moon_max": "Mondlicht max. (%)",
+          "brightness": "Helligkeit (%)",
+          "night_light": "Nachtlicht (%)",
           "moon_channel": "Mondlicht-Kanal",
           "lightning_min": "Blitz-Pause min. (s)",
           "lightning_max": "Blitz-Pause max. (s)"
+        },
+        "data_description": {
+          "night_light": "0 = aus, nur Mondlicht"
         }
       },
       "preset": {

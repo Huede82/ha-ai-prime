@@ -434,6 +434,107 @@ async function previewScenario(page, vp) {
   await page.click(`${P} #d-today`);
   await page.waitForSelector(`${P} line.now`, { state: "attached" });
   check(true, `${tag}: back to today restores now-line`);
+
+  // v0.3: Theorie/Heute toggle, play cursor, light settings.
+  await page.waitForSelector(`${P} #chart`);
+  check(await page.locator(`${P} #s-today`).getAttribute("class") === "on" && await page.locator(`${P} #s-theory`).count() === 1, `${tag}: toggle present, Heute default`);
+  check((await page.locator(`${P} #s-theory`).textContent()) === "Theorie", `${tag}: toggle label Theorie`);
+  const effPts = await page.locator(`${P} polyline.eff`).first().getAttribute("points");
+  await page.click(`${P} #s-theory`);
+  const thPts = await page.locator(`${P} polyline.eff`).first().getAttribute("points");
+  check(thPts !== effPts && (await page.locator(`${P} .legend`).textContent()).includes("Theorie"), `${tag}: theory series swaps thick lines and legend`);
+  await page.click(`${P} #s-today`);
+  check((await page.locator(`${P} .legend`).textContent()).includes("mit Wetter"), `${tag}: legend for effective`);
+  check(await page.locator(`${P} #light input[type=range]`).count() === 3, `${tag}: light card with three sliders`);
+  check(await page.locator(`${P} #l-brightness`).inputValue() === "80" && await page.locator(`${P} #v-night_light`).textContent() === "aus", `${tag}: sliders start from cfg.light`);
+  check((await page.locator(`${P} #light`).textContent()).includes("0 = aus, nachts nur Mondlicht"), `${tag}: night light hint`);
+  check(await page.locator(`${P} #readout`).isHidden(), `${tag}: readout hidden before play`);
+  check(await page.locator(`${P} #lamp`).getAttribute("class") === "on" && (await page.locator(`${P} #lamp`).textContent()) === "Auf Lampe", `${tag}: "Auf Lampe" toggle defaults to on`);
+  check(await page.locator(`${P} #demo-hint`).isHidden(), `${tag}: lamp hint hidden before play`);
+  const demoN = (type) => page.evaluate((ty) => window.__ws.filter((m) => m.type === ty).length, type);
+  const frames0 = await demoN("ai_prime/demo/frame");
+  const stops0 = await demoN("ai_prime/demo/stop");
+  await page.click(`${P} #play`);
+  await page.waitForTimeout(1500);
+  const t1 = await page.locator(`${P} #ro-time`).textContent();
+  const t1min = Number(t1.slice(0, 2)) * 60 + Number(t1.slice(3));
+  check(await page.locator(`${P} #readout`).isVisible() && t1 !== "00:00" && /^\d\d:\d\d$/.test(t1), `${tag}: play advances cursor (${t1})`);
+  check(t1min > 0 && t1min <= 80, `${tag}: playback speed is 2 s per hour (${t1})`);
+  const frames1 = (await wsCalls(page, "ai_prime/demo/frame")).slice(frames0);
+  check(frames1.length >= 3 && frames1.length <= 17, `${tag}: playing sends throttled demo/frame calls (${frames1.length})`);
+  const f0 = frames1[0];
+  check(f0.entry_id === "entry1" && Object.keys(f0.values).sort().join() === "blue,cool_white,deep_red,green,warm_white" && Object.values(f0.values).every((v) => typeof v === "number" && v >= 0 && v <= 100), `${tag}: frame payload ${JSON.stringify(f0.values)}`);
+  check(await page.locator(`${P} #demo-hint`).isVisible() && (await page.locator(`${P} #demo-hint`).textContent()) === "Lampe zeigt Vorschau", `${tag}: lamp hint shown while demo runs`);
+  check(await demoN("ai_prime/demo/stop") === stops0, `${tag}: no demo/stop while playing`);
+  check((await page.locator(`${P} #play`).textContent()).includes("Pause"), `${tag}: button shows pause`);
+  const sw = await page.evaluate(() => getComputedStyle(window.__deep("ai-prime-tab-preview #ro-swatch")).backgroundColor);
+  check(sw.startsWith("rgb") && (await page.locator(`${P} #ro-blue`).textContent()).includes("%"), `${tag}: swatch and channel values (${sw})`);
+  await page.click(`${P} #play`);
+  const t2 = await page.locator(`${P} #ro-time`).textContent();
+  await page.waitForTimeout(600);
+  check(await page.locator(`${P} #ro-time`).textContent() === t2, `${tag}: pause freezes cursor`);
+  await page.waitForFunction((n) => window.__ws.filter((m) => m.type === "ai_prime/demo/stop").length === n + 1, stops0);
+  check(await demoN("ai_prime/demo/stop") === stops0 + 1 && (await wsCalls(page, "ai_prime/demo/stop")).at(-1).entry_id === "entry1", `${tag}: pause sends demo/stop once`);
+  check(await page.locator(`${P} #demo-hint`).isHidden(), `${tag}: lamp hint hidden after pause`);
+  // Toggle off: playing sends nothing to the lamp.
+  await page.click(`${P} #lamp`);
+  check(await page.locator(`${P} #lamp`).getAttribute("class") === "", `${tag}: toggle off`);
+  const framesOff = await demoN("ai_prime/demo/frame");
+  await page.click(`${P} #play`);
+  await page.waitForTimeout(500);
+  await page.click(`${P} #play`);
+  await page.waitForTimeout(200);
+  check(await demoN("ai_prime/demo/frame") === framesOff && await demoN("ai_prime/demo/stop") === stops0 + 1, `${tag}: toggle off -> no frames, no stop`);
+  await page.click(`${P} #lamp`);
+  // Lamp error stops playback and shows the error.
+  await page.evaluate(() => { window.__fail["ai_prime/demo/frame"] = { code: "lamp_unreachable", message: "x" }; });
+  await page.click(`${P} #play`);
+  await page.waitForSelector(`${P} #demo-error:not([hidden])`);
+  check((await page.locator(`${P} #demo-error`).textContent()).includes("Lampe nicht erreichbar") && (await page.locator(`${P} #play`).textContent()).includes("Abspielen"), `${tag}: lamp error stops playback and is shown`);
+  await page.evaluate(() => { window.__fail = {}; });
+  // Tap on chart seeks: middle of the plot = 12:00.
+  const box = await page.locator(`${P} #chart`).boundingBox();
+  await page.mouse.click(box.x + box.width * ((34 + (800 - 34 - 8) / 2) / 800), box.y + box.height / 2);
+  const seek = await page.locator(`${P} #ro-time`).textContent();
+  check(seek === "12:00", `${tag}: tap on chart sets cursor (${seek})`);
+  await page.click(`${P} #s-theory`);
+  check(await page.locator(`${P} #ro-time`).textContent() === "12:00" && await page.locator(`${P} #readout`).isVisible(), `${tag}: series change keeps cursor`);
+  await page.click(`${P} #s-today`);
+  const noScroll = await page.evaluate(() => {
+    const e = window.__deep("ai-prime-tab-preview");
+    return e.scrollWidth <= e.clientWidth + 1 && document.documentElement.scrollWidth <= window.innerWidth;
+  });
+  check(noScroll, `${tag}: no horizontal scroll`);
+  await page.screenshot({ path: join(OUT, `preview-${vp.name}-v03.png`) });
+
+  const setSlider = (id, value) => page.evaluate(([sel, v]) => {
+    const el = window.__deep(sel);
+    el.value = v;
+    el.dispatchEvent(new Event("input", { bubbles: true }));
+    el.dispatchEvent(new Event("change", { bubbles: true }));
+  }, [`ai-prime-tab-preview ${id}`, value]);
+  const before = (await wsCalls(page, "ai_prime/light/set")).length;
+  await setSlider("#l-night_light", "2.5");
+  await page.waitForFunction((n) => window.__ws.filter((m) => m.type === "ai_prime/light/set").length > n, before);
+  const ls = (await wsCalls(page, "ai_prime/light/set")).at(-1);
+  check(ls.entry_id === "entry1" && ls.night_light === 2.5 && Object.keys(ls).length === 3, `${tag}: light/set payload ${JSON.stringify(ls)}`);
+  await page.waitForFunction(() => window.__deep("ai-prime-tab-preview #v-night_light")?.textContent === "2.5 %");
+  check(await page.locator(`${P} #l-night_light`).isEnabled(), `${tag}: sliders re-enabled after save`);
+  await setSlider("#l-brightness", "55");
+  await page.waitForFunction(() => window.__ws.filter((m) => m.type === "ai_prime/light/set").at(-1).brightness === 55);
+  check(true, `${tag}: brightness change sends brightness`);
+  await page.waitForFunction(() => !window.__deep("ai-prime-tab-preview #l-saving"));
+  await page.evaluate(() => { window.__fail["ai_prime/light/set"] = { code: "lamp_rejected", message: "x" }; });
+  await setSlider("#l-moon_max", "3");
+  await page.waitForSelector(`${P} #l-error`);
+  check((await page.locator(`${P} #l-error`).textContent()).includes("Lampe"), `${tag}: lamp_rejected shown`);
+  await page.evaluate(() => { window.__fail = {}; });
+  // Non-admin: sliders disabled.
+  await page.evaluate(() => { window.__hass.user = { is_admin: false }; });
+  await page.click(`${P} #d-tomorrow`);
+  await page.waitForFunction(() => window.__deep("ai-prime-tab-preview #l-brightness")?.disabled === true);
+  check(true, `${tag}: sliders disabled for non-admin`);
+  await page.evaluate(() => { delete window.__hass.user; });
 }
 
 const browser = await chromium.launch(launchOptions(chromium)); // PW_CHROMIUM overrides

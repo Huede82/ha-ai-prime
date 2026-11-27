@@ -115,3 +115,17 @@ def test_preview_none_preset():
     assert all(v == 0 for ch in ("base", "effective") for vals in out["curve"][ch].values() for v in vals)
     assert out["sun"]["home"] is not None and out["sun"]["local"] is not None
     assert out["curve"]["t"][-1] == 1440
+
+
+def test_preview_theory_ignores_weather_and_has_light():
+    settings = NatureSettings(brightness=0.5, night_level=20)
+    cloudy = Weather(cloud_cover=1.0, thunderstorm=False, fetched_at=datetime(2026, 6, 21, tzinfo=timezone.utc))
+    args = (PRESET, DAY, ZH, ZH, "anchored", ZH, "anchored", settings)
+    with_w = build_preview(*args, cloudy)
+    without = build_preview(*args, None)
+    assert with_w["curve"]["theory"] == without["curve"]["theory"] == without["curve"]["effective"]
+    assert with_w["curve"]["effective"] != with_w["curve"]["theory"]
+    assert with_w["light"] == {"brightness": 50, "night_light": 2.0, "moon_max": 3.0}
+    # base stays the raw preset
+    assert with_w["curve"]["base"] == without["curve"]["base"]
+    assert without["curve"]["theory"]["blue"][0] >= 2.0  # night light at midnight

@@ -16,7 +16,7 @@ from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from .api import PrimeError
 from .coordinator import PrimeConfigEntry, PrimeCoordinator
-from .entity import PrimeEntity, apply_schedule
+from .entity import PrimeEntity, apply_schedule, stop_demo
 
 PARALLEL_UPDATES = 1
 RESTORE_RETRY_S = 60
@@ -112,10 +112,12 @@ class PrimeNatureSwitch(_RunnerSwitch):
 
     async def async_turn_on(self, **kwargs: Any) -> None:
         self._clear_retry()
+        await stop_demo(self.coordinator)
         await self.coordinator.nature.start()
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         self._clear_retry()
+        await stop_demo(self.coordinator)
         await self.coordinator.nature.stop()
 
 

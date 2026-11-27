@@ -158,3 +158,57 @@ export function fmtState(state, digits) {
   if (state === null || state === undefined || state === "" || !Number.isFinite(n)) return String(state ?? "");
   return n.toFixed(digits);
 }
+
+// Approximate light colour per channel (additive RGB) for the preview swatch.
+export const CHANNEL_RGB = {
+  blue: [40, 90, 255],
+  green: [40, 200, 90],
+  deep_red: [255, 30, 20],
+  warm_white: [255, 190, 120],
+  cool_white: [215, 230, 255],
+};
+
+/**
+ * Approximate colour of a channel mix {channel: percent}: additive RGB, normalised so the
+ * brightest component is 255; alpha follows the total intensity. All zero -> dark grey.
+ */
+export function mixColor(values) {
+  let r = 0;
+  let g = 0;
+  let b = 0;
+  let sum = 0;
+  for (const c of CHANNEL_ORDER) {
+    const v = Math.max(0, Number(values && values[c]) || 0) / 100;
+    const [cr, cg, cb] = CHANNEL_RGB[c];
+    r += v * cr;
+    g += v * cg;
+    b += v * cb;
+    sum += v * 100;
+  }
+  const max = Math.max(r, g, b);
+  if (max <= 0) return { r: 51, g: 51, b: 51, a: 1, css: "rgb(51, 51, 51)" };
+  const k = 255 / max;
+  const out = { r: Math.round(r * k), g: Math.round(g * k), b: Math.round(b * k), a: Math.min(1, 0.15 + sum / 250) };
+  out.css = `rgba(${out.r}, ${out.g}, ${out.b}, ${Math.round(out.a * 1000) / 1000})`;
+  return out;
+}
+
+/** Channel values {channel: percent} at minute `m`, linear between the samples of `curve.t` / `series`. */
+export function curveAt(curve, series, m) {
+  const out = {};
+  const ts = (curve && curve.t) || [];
+  for (const c of CHANNEL_ORDER) {
+    const ys = (series && series[c]) || [];
+    const n = Math.min(ts.length, ys.length);
+    if (!n) out[c] = 0;
+    else if (m <= ts[0]) out[c] = ys[0];
+    else if (m >= ts[n - 1]) out[c] = ys[n - 1];
+    else {
+      let i = 0;
+      while (i < n - 2 && ts[i + 1] < m) i++;
+      const f = ts[i + 1] === ts[i] ? 0 : (m - ts[i]) / (ts[i + 1] - ts[i]);
+      out[c] = ys[i] + (ys[i + 1] - ys[i]) * f;
+    }
+  }
+  return out;
+}

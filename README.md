@@ -50,12 +50,18 @@ with three tabs (German UI by default, English when your Home Assistant language
 
 - **Orte** — weather, sun and moon location (map picker or name search), time mode per sun/moon
   (anchored / real), and "follow another lamp". Shows the resulting times for each location.
-- **Zeitpläne** — schedule library per lamp: edit points on a curve (drag, add, delete) or in a table, create
-  from a template (Natur / Original / Leer), duplicate, rename, delete, activate. Saving with "activate" writes
-  the schedule to the lamp.
-- **Vorschau** — pick today, tomorrow or any date: thin lines are the schedule, thick lines the effective
-  lamp output (sun remap, moonlight, and for today the current cloud cover), with sunrise/sunset/moonrise/moonset
-  markers, a now-line for today and a list of the times, day length, moon phase and weather.
+- **Farbschema** — color scheme library per lamp: pick a scheme or a template (Natur / Leer) to see it in the
+  editor, edit points on a curve (drag, add, delete) or in a table. Changes are always saved as a new scheme
+  under a new name ("Als neu speichern", optionally "& aktivieren"); rename, delete and activate in the library.
+  Activating writes the scheme to the lamp.
+- **Vorschau** — pick today, tomorrow or any date: thin lines are the color scheme, thick lines the lamp
+  output, either **Theorie** (sun remap, brightness, night and moon light, no weather) or **Mit Wetter**
+  (plus cloud cover and storms), with sunrise/sunset/moonrise/moonset markers, a now-line for today and a list
+  of the times, day length, moon phase and weather. A **Licht** card holds the brightness, night light and
+  moonlight sliders. **▶ Abspielen** plays the day in 48 s (2 s per hour) with a live readout of the channel
+  values and the mixed color; with **Auf Lampe** on, the lamp itself shows the playback (about 10 frames per
+  second). Pausing, finishing or leaving the tab hands the lamp back to nature mode (or restores its previous
+  schedule/colors); if the studio disappears, Home Assistant restores the lamp after 5 s without frames.
 
 **Lamp write and backup.** Activating a schedule writes it to the lamp's internal schedule (the lamp then also
 runs it without Home Assistant). Before Home Assistant writes to a lamp for the first time it reads the lamp's
@@ -106,9 +112,20 @@ converted to your time zone). `real` is meant for locations a few hours from hom
 
 Only coordinates (rounded to 2 decimals) are sent to Open-Meteo, every 15 minutes.
 
+### Brightness, night light, moonlight
+
+Three per-lamp settings (options → Simulation, or the studio; followers keep their own values):
+
+- **Brightness** (1–100 %, default 100) scales the whole day curve. It is also applied to the schedule written
+  into the lamp, so the lamp's own fallback schedule matches.
+- **Night light** (0–5 %, default 0 = off) is a constant glow on the moonlight channel whenever all preset
+  channels are 0. Clouds do not dim it. It is *not* written into the lamp schedule, so the lamp's fallback
+  schedule stays plain.
+- **Moonlight max** (0–5 %, default 3) is the moon's contribution at full moon, added on top of the night light.
+
 ### Preset editor (options text form)
 
-The studio's **Zeitpläne** tab is the main editor now; the text form under Options → Edit preset shows one line per time point: the time, then percent values (0–100, one decimal
+The studio's **Farbschema** tab is the main editor now; the text form under Options → Edit preset shows one line per time point: the time, then percent values (0–100, one decimal
 allowed) in the vendor app's channel order **blue, green, deep red, warm white, cool white**.
 Separators are spaces and/or commas, `#` starts a comment, blank lines are ignored. Times are
 `00:00`–`24:00`, each only once, at least two points.
@@ -136,6 +153,26 @@ Naturmodus: Home Assistant steuert die Lampe minütlich aus dem Preset, angepass
 Orte, Zeitmodus (verankert / echte Ortszeit), Stärken und das Preset stellt man unter
 Einstellungen → Geräte & Dienste → AquaIllumination Prime → Konfigurieren ein.
 Jede manuelle Änderung schaltet Naturmodus und internen Zeitplan aus.
+
+## Changelog
+
+### 0.3.1
+- Preview: **Auf Lampe** — the playback runs on the real lamp; nature mode (or the previous schedule/colors)
+  takes over again on pause, at the end, when leaving the tab, or after 5 s without frames.
+- Playback speed 2 s per hour (one day in 48 s).
+- Frontend files are served under a versioned path, so the companion app picks up new versions after an
+  update.
+
+### 0.3.0
+- Per-lamp **brightness** (1–100 %), also applied to the schedule written into the lamp.
+- **Night light** (0–5 %, 0.1 % steps, default off) on the moonlight channel; **moonlight max** now in
+  0.1 % steps.
+- Preview: **Theorie / Mit Wetter** toggle, **▶ Abspielen** with live channel readout and mixed color,
+  **Licht** card with the three sliders.
+
+### 0.2.0
+- First public release: lamp control, nature mode, power sensor, AI Prime Studio (locations, color schemes,
+  preview), lamp schedule write with backup of the original, HACS support.
 
 ## License
 

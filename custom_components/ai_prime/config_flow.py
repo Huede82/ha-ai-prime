@@ -40,6 +40,8 @@ from .const import (
     CONF_LIGHTNING_MIN,
     CONF_MOON_CHANNEL,
     CONF_MOON_LOCATION,
+    CONF_BRIGHTNESS,
+    CONF_NIGHT_LIGHT,
     CONF_MOON_MAX,
     CONF_MOON_MODE,
     CONF_PRESET,
@@ -243,7 +245,21 @@ class PrimeOptionsFlow(OptionsFlow):
                 ): _number(0, 100, 1, "%"),
                 vol.Required(
                     CONF_MOON_MAX, default=defaults.get(CONF_MOON_MAX, 3)
-                ): _number(0, 10, 0.5, "%"),
+                ): _number(0, 5, 0.1, "%"),
+                vol.Required(
+                    CONF_BRIGHTNESS, default=defaults.get(CONF_BRIGHTNESS, 100)
+                ): NumberSelector(
+                    NumberSelectorConfig(
+                        min=1,
+                        max=100,
+                        step=1,
+                        unit_of_measurement="%",
+                        mode=NumberSelectorMode.SLIDER,
+                    )
+                ),
+                vol.Required(
+                    CONF_NIGHT_LIGHT, default=defaults.get(CONF_NIGHT_LIGHT, 0.0)
+                ): _number(0, 5, 0.1, "%"),
                 vol.Required(
                     CONF_MOON_CHANNEL, default=defaults.get(CONF_MOON_CHANNEL, "blue")
                 ): SelectSelector(

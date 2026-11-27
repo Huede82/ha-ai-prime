@@ -26,6 +26,8 @@ from ..const import (
     CONF_MOON_CHANNEL,
     CONF_MOON_LOCATION,
     CONF_MOON_MAX,
+    CONF_BRIGHTNESS,
+    CONF_NIGHT_LIGHT,
     CONF_MOON_MODE,
     CONF_PRESET,
     CONF_PRESETS,
@@ -67,6 +69,7 @@ class NatureRunner:
         self.coordinator = coordinator
         self.entry = entry
         self.active = False
+        self.paused = False  # the demo owns the lamp; the switch state is untouched
         self.lightning_enabled = False
         self.last_target: Target | None = None
         self.weather: Weather | None = None
@@ -119,6 +122,8 @@ class NatureRunner:
             cloud_strength=opts.get(CONF_CLOUD_STRENGTH, 50) / 100,
             moon_max=opts.get(CONF_MOON_MAX, 3) / 100,
             moon_channel=opts.get(CONF_MOON_CHANNEL, "blue"),
+            brightness=opts.get(CONF_BRIGHTNESS, 100) / 100,
+            night_level=round(opts.get(CONF_NIGHT_LIGHT, 0.0) * 10),
         )
         self._scheduler = LightningScheduler(
             self._rng,
@@ -236,6 +241,17 @@ class NatureRunner:
             self.last_target = None
         self._notify()
 
+    def pause(self) -> None:
+        """Stop writing to the lamp (demo); ``active`` and the switch stay as they are."""
+        self.paused = True
+
+    async def resume(self) -> None:
+        """Take the lamp back and re-apply the engine value immediately."""
+        self.paused = False
+        self._last_written = None
+        if self.active:
+            await self.tick(dt_util.now())
+
     async def set_lightning(self, enabled: bool) -> None:
         self.lightning_enabled = enabled
         self._notify()
@@ -282,7 +298,7 @@ class NatureRunner:
 
     async def tick(self, now: datetime) -> None:
         """Compute the target for `now` and write it when it changed."""
-        if self._preset is None:
+        if self._preset is None or self.paused:
             return
         local = dt_util.as_local(now)
         minute = local.hour * 60 + local.minute + local.second / 60
@@ -297,7 +313,7 @@ class NatureRunner:
         self._dark = not moon_up and all(v == 0 for v in base.values())
         coord = self.coordinator
         async with coord.write_lock:
-            if not self.active:
+            if not self.active or self.paused:
                 return
             lamp_drifted = not self._flash_on and (
                 coord.data.schedule_enabled or coord.data.colors != self._last_written
@@ -326,6 +342,7 @@ class NatureRunner:
     def _may_flash(self) -> bool:
         return bool(
             self.active
+            and not self.paused
             and self.lightning_enabled
             and self.weather is not None
             and self.weather.thunderstorm
@@ -341,6 +358,8 @@ class NatureRunner:
             return await self._send_target(flash)
 
     async def _send_target(self, flash: bool) -> bool:
+        if self.paused:
+            return True  # the demo owns the lamp
         mix = dict(self.last_target.channels)
         if flash:
             mix.update({c: FLASH_VALUE for c in FLASH_CHANNELS})

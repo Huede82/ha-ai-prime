@@ -25,6 +25,7 @@ from .api import (
     PrimeError,
 )
 from .const import (
+    CONF_BRIGHTNESS,
     CONF_FOLLOW,
     CONF_LAMP_WRITE_PENDING,
     CONF_ORIGINAL_CAPTURED,
@@ -39,6 +40,7 @@ from .power import PowerModel
 from .studio import effective, leader_entry
 
 if TYPE_CHECKING:
+    from .demo import Demo
     from .nature.runner import NatureRunner
     from .studio import Studio
 
@@ -92,6 +94,7 @@ class PrimeCoordinator(DataUpdateCoordinator[PrimeData]):
         self.power_model: PowerModel | None = None
         self.nature: NatureRunner | None = None
         self.studio: Studio | None = None
+        self.demo: Demo | None = None
         self._retry_running = False
         self._retry_delay = 0.0
         self._retry_at = 0.0  # monotonic time before which no retry is started
@@ -151,7 +154,10 @@ class PrimeCoordinator(DataUpdateCoordinator[PrimeData]):
                 if stored is not None:
                     try:
                         await self.client.set_schedule_points(
-                            to_lamp_schedule(Preset.from_dict(stored))
+                            to_lamp_schedule(
+                                Preset.from_dict(stored),
+                                options.get(CONF_BRIGHTNESS, 100) / 100,
+                            )
                         )
                     except PrimeApiError as err:
                         _LOGGER.warning("Lamp rejected the schedule: %s", err)

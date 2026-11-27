@@ -25,6 +25,12 @@ async def _stop_nature(coordinator: PrimeCoordinator) -> None:
         await coordinator.nature.stop()
 
 
+async def stop_demo(coordinator: PrimeCoordinator) -> None:
+    """A manual change ends a running demo first (before any write lock)."""
+    if coordinator.demo is not None:
+        await coordinator.demo.stop()
+
+
 async def apply_colors(
     coordinator: PrimeCoordinator,
     values: Mapping[str, int] | Callable[[dict[str, int]], Mapping[str, int]],
@@ -35,6 +41,7 @@ async def apply_colors(
     the write lock so parallel read-modify-write calls cannot lose a channel.
     Returns the mix that was sent.
     """
+    await stop_demo(coordinator)
     await _stop_nature(coordinator)
     async with coordinator.write_lock:
         mix = values(dict(coordinator.data.colors)) if callable(values) else values
@@ -58,6 +65,7 @@ async def apply_colors(
 
 async def apply_schedule(coordinator: PrimeCoordinator, enabled: bool) -> None:
     """Switch the internal schedule on or off."""
+    await stop_demo(coordinator)
     if enabled:
         await _stop_nature(coordinator)
     async with coordinator.write_lock:

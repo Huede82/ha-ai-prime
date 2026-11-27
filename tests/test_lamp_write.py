@@ -309,3 +309,18 @@ async def test_follower_lamp_written_when_follow_cleared(hass, lamp, lamp2) -> N
     await hass.async_block_till_done()
     assert state2["schedule"]["name"] == "Own"
     assert follower.options[CONF_LAMP_WRITE_PENDING] is False
+
+
+async def test_write_scales_by_brightness_and_ws_rewrites(hass, lamp) -> None:
+    server, state = lamp
+    entry = await _add(hass, server, "SER1", {**_options(300), "brightness": 50})
+    await entry.runtime_data.write_active_schedule()
+    for ramp in state["schedule"]["ramps"]:
+        assert ramp["points"][0]["intensity"] == 150
+    posts = state["calls"].count(POST)
+    await entry.runtime_data.studio.set_light({"night_light": 1.0})
+    assert state["calls"].count(POST) == posts  # no lamp write without brightness change
+    await entry.runtime_data.studio.set_light({"brightness": 100})
+    assert state["calls"].count(POST) == posts + 1
+    assert state["schedule"]["ramps"][0]["points"][0]["intensity"] == 300
+    assert entry.options["night_light"] == 1.0

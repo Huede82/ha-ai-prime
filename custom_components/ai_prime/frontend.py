@@ -21,10 +21,15 @@ async def async_register_frontend(hass: HomeAssistant) -> None:
     if hass.data.get(_FLAG):
         return
     hass.data[_FLAG] = True
-    # No long-lived cache: only the entry URL carries ?v=, the sibling ES modules
-    # (relative imports) must never be older than the entry after an upgrade.
+    # The version is part of the path, so every sibling ES module (relative
+    # import) gets a new URL after an upgrade; browsers and the companion app's
+    # WebView otherwise keep serving stale modules from their heuristic cache.
     version = (await async_get_integration(hass, DOMAIN)).version
+    folder = str(Path(__file__).parent / "frontend")
     await hass.http.async_register_static_paths(
-        [StaticPathConfig(URL_BASE, str(Path(__file__).parent / "frontend"), False)]
+        [
+            StaticPathConfig(URL_BASE, folder, False),
+            StaticPathConfig(f"{URL_BASE}/{version}", folder, False),
+        ]
     )
-    frontend.add_extra_js_url(hass, f"{URL_BASE}/{CARD_FILE}?v={version}")
+    frontend.add_extra_js_url(hass, f"{URL_BASE}/{version}/{CARD_FILE}")

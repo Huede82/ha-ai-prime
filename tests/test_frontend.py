@@ -15,9 +15,11 @@ async def test_frontend_registered(hass, hass_client) -> None:
     version = (await async_get_integration(hass, DOMAIN)).version
     assert await async_setup_component(hass, DOMAIN, {})
     await hass.async_block_till_done()
-    assert f"/ai_prime_static/ai-prime-card.js?v={version}" in hass.data["frontend_extra_module_url"]
+    assert f"/ai_prime_static/{version}/ai-prime-card.js" in hass.data["frontend_extra_module_url"]
 
     client = await hass_client()
+    resp = await client.get(f"/ai_prime_static/{version}/tab-preview.js")
+    assert resp.status == 200
     resp = await client.get("/ai_prime_static/ai-prime-card.js")
     assert resp.status == 200
     assert "ai-prime-card" in await resp.text()

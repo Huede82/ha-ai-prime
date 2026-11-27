@@ -276,13 +276,13 @@ def check_follow(
         raise LibraryError("follow_cycle", "entry is a leader of others")
 
 
-def to_lamp_schedule(preset: Preset) -> dict[str, Any]:
-    """Lamp ``/api/schedule`` payload; times clipped to 1439."""
+def to_lamp_schedule(preset: Preset, brightness: float = 1.0) -> dict[str, Any]:
+    """Lamp ``/api/schedule`` payload; times clipped to 1439, intensities scaled."""
     ramps = []
     for channel in CHANNELS:
         by_time: dict[int, int] = {}
         for t, v in preset.ramps.get(channel, ()):
-            by_time[min(t, LAMP_MAX_TIME)] = v
+            by_time[min(t, LAMP_MAX_TIME)] = round(v * brightness)
         if not by_time:
             by_time = {0: 0}
         ramps.append(

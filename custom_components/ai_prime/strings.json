@@ -54,9 +54,14 @@
         "data": {
           "cloud_strength": "Cloud strength (%)",
           "moon_max": "Moonlight max (%)",
+          "brightness": "Brightness (%)",
+          "night_light": "Night light (%)",
           "moon_channel": "Moonlight channel",
           "lightning_min": "Lightning pause min (s)",
           "lightning_max": "Lightning pause max (s)"
+        },
+        "data_description": {
+          "night_light": "0 = off, moonlight only"
         }
       },
       "preset": {

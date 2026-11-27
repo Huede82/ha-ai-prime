@@ -203,3 +203,10 @@ def test_to_lamp_schedule_clips_1440_and_empty_channel():
     assert by["blue"] == [{"time": 0, "intensity": 0}, {"time": 1439, "intensity": 7}]
     assert by["green"] == [{"time": 0, "intensity": 1}, {"time": 1439, "intensity": 9}]
     assert by["deep_red"] == [{"time": 0, "intensity": 0}]
+
+
+def test_to_lamp_schedule_scales_brightness():
+    preset = Preset("P", {"blue": ((0, 0), (1439, 1000)), "green": ((0, 5), (1439, 9))})
+    by = {r["color"]: r["points"] for r in to_lamp_schedule(preset, 0.5)["ramps"]}
+    assert by["blue"] == [{"time": 0, "intensity": 0}, {"time": 1439, "intensity": 500}]
+    assert by["green"][1]["intensity"] == round(9 * 0.5)

@@ -182,3 +182,32 @@ test("fmtState rounds numeric states and passes others through", () => {
   assert.equal(fmtState("unavailable", 1), "unavailable");
   assert.equal(fmtState(null, 1), "");
 });
+
+import { mixColor, curveAt } from "./model.js";
+test("mixColor: zero is dark grey, single channels normalise, intensity drives alpha", () => {
+  const zero = mixColor({ blue: 0, green: 0, deep_red: 0, warm_white: 0, cool_white: 0 });
+  assert.deepEqual([zero.r, zero.g, zero.b, zero.a], [51, 51, 51, 1]);
+  const blue = mixColor({ blue: 100 });
+  assert.deepEqual([blue.r, blue.g, blue.b], [Math.round(40 * 255 / 255), Math.round(90), 255]);
+  assert.equal(blue.a, 0.15 + 100 / 250);
+  const red = mixColor({ deep_red: 50 });
+  assert.deepEqual([red.r, red.g, red.b], [255, 30, 20]);
+  assert.ok(red.a < blue.a);
+  const full = mixColor({ blue: 100, green: 100, deep_red: 100, warm_white: 100, cool_white: 100 });
+  assert.equal(full.a, 1);
+  assert.equal(Math.max(full.r, full.g, full.b), 255);
+  const warm = mixColor({ warm_white: 100, blue: 0 });
+  assert.ok(warm.r > warm.b);
+  assert.match(warm.css, /^rgba\(255, 190, 120, /);
+});
+
+test("curveAt interpolates linearly and clamps", () => {
+  const curve = { t: [0, 60, 120] };
+  const s = { blue: [0, 10, 30], green: [5, 5, 5], deep_red: [0, 0, 0], warm_white: [0, 0, 0], cool_white: [] };
+  assert.equal(curveAt(curve, s, 30).blue, 5);
+  assert.equal(curveAt(curve, s, 90).blue, 20);
+  assert.equal(curveAt(curve, s, -5).blue, 0);
+  assert.equal(curveAt(curve, s, 500).blue, 30);
+  assert.equal(curveAt(curve, s, 60).blue, 10);
+  assert.equal(curveAt(curve, s, 30).cool_white, 0);
+});

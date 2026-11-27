@@ -85,6 +85,7 @@ const config = {
     weather_location: { ...HOME }, sun_location: { ...HOME }, moon_location: { ...HOME },
     sun_mode: "anchored", moon_mode: "anchored",
   },
+  light: { brightness: 80, night_light: 0, moon_max: 1.5 },
   effective_active: "p1",
   effective_active_name: "Standard",
   lamp_write_pending: false,
@@ -110,17 +111,32 @@ const handlers = {
     const res = structuredClone(preview);
     res.date = day;
     if (day !== today) res.weather = null;
-    const ts = [], base = {}, eff = {};
-    for (const c of Object.keys(ch(0))) { base[c] = []; eff[c] = []; }
+    const ts = [], base = {}, eff = {}, theory = {};
+    for (const c of Object.keys(ch(0))) { base[c] = []; eff[c] = []; theory[c] = []; }
     for (let t = 0; t <= 1440; t += 10) {
       ts.push(t);
       const k = Math.max(0, Math.sin(((t - 360) / 1080) * Math.PI));
-      Object.keys(base).forEach((c, i) => { base[c].push(Math.round(k * (60 - i * 8) * 10) / 10); eff[c].push(Math.round(k * (50 - i * 7) * 10) / 10); });
+      Object.keys(base).forEach((c, i) => { base[c].push(Math.round(k * (60 - i * 8) * 10) / 10); eff[c].push(Math.round(k * (50 - i * 7) * 10) / 10); theory[c].push(Math.round(k * (55 - i * 7) * 10) / 10); });
     }
-    res.curve = { t: ts, base, effective: eff };
+    res.curve = { t: ts, base, effective: eff, theory };
     res.markers = [{ kind: "moonset", t: 321 }, { kind: "sunrise", t: 468 }, { kind: "sunset", t: 1008 }, { kind: "moonrise", t: 1002 }];
     return res;
   },
+  "ai_prime/light/set": (m) => {
+    const lim = { brightness: [1, 100], night_light: [0, 5], moon_max: [0, 5] };
+    for (const k of Object.keys(lim)) {
+      if (m[k] === undefined) continue;
+      if (m[k] < lim[k][0] || m[k] > lim[k][1]) throw { code: "invalid_format", message: `${k} out of range` };
+      config.light[k] = m[k];
+    }
+    return structuredClone(config.light);
+  },
+  "ai_prime/demo/frame": (m) => {
+    const v = m.values || {};
+    if (Object.keys(ch(0)).some((c) => typeof v[c] !== "number" || v[c] < 0 || v[c] > 100)) throw { code: "invalid_format", message: "bad values" };
+    return null;
+  },
+  "ai_prime/demo/stop": () => null,
   "ai_prime/geocode": () => structuredClone(geocode),
   "ai_prime/locations/set": () => null,
   "ai_prime/follow/set": () => null,
